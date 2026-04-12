@@ -29,8 +29,7 @@ def displayMenu(files, script_name, url):
         animation = findAnimation(input_file)
         folder = findFolder(input_file)
         if script_name == "FolderScript" and folder != "AnchorMenu":
-            menu_str +=  menuItem('"'+folder+"/AnchorMenu.x3d"+'"', folder+"/AnchorMenu.x3d", '"'+folder+'"', translation=f"-2 {ifs_start} 0.5", textTranslation="0.05 -0.011 0", load="false", size="1 0.1", fontSize="0.05", spacing="0.6")
-            # menu_str += '<fieldValue name="url" value=\'"'+fixURL(url)+folder+"/"+animation+'.x3d" "'+folder+"/"+animation+'.x3d"\'/>\n'
+            menu_str +=  menuItem('"'+fixURL(url)+folder+"/AnchorMenu.x3d"+'" "'+folder+"/AnchorMenu.x3d"+'"', folder+"/AnchorMenu.x3d", '"'+folder+'"', translation=f"-2 {ifs_start} 0.5", textTranslation="0.05 -0.011 0", load="false", size="1 0.1", fontSize="0.05", spacing="0.6")
             ifs_start += increment
         if script_name == "FileScript" and animation != "AnchorMenu":
             menu_str +=  menuItem('"'+fixURL(url)+animation+'.x3d" "'+animation+'.x3d"', animation, '"'+animation+'"', translation=f"-1 {ifs_start} 0.5", textTranslation="0.05 -0.011 0", load="false", size="1 0.1", fontSize="0.05", spacing="0.6")
@@ -76,6 +75,7 @@ def walkX3d(dir, url, files, folders):
         files = sorted(set(files))
     else:
         files = sorted(set(folders + files))
+    # print(folders)
     # produce final output
     finalX3D = xml.etree.ElementTree.Element('X3D')
     finalX3D.text = "\n"
@@ -199,6 +199,13 @@ if __name__ == "__main__":
     # files = glob.glob(PATH+'*.x3d')
     for root, dirs, files in os.walk(PATH):
         url = root.replace(HOME, HTTPS)+"/"
-        folders = ["{}/{}/{}".format(root, d, "AnchorMenu.x3d") for d in dirs]
+        filtered_dirs = []
+        for d in dirs:
+            if not d in ("_thumbnails", "_viewpoints", "nbproject", "originals"):
+                filtered_dirs = filtered_dirs + [d];
+        dirs = [ '..' ] + filtered_dirs
+        print("filter", dirs)
+        folders = ["{}/{}/{}".format(root, d, "AnchorMenu.x3d") for d in dirs ]
+        print("anchor", folders)
         x3dfiles = ['{}/{}'.format(root, f) for f in files if f.endswith(".x3d") and not "new" in f]
         walkX3d(root, url, x3dfiles, folders)
