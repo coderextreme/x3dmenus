@@ -60,7 +60,7 @@ def menuItem(url, description, label, translation=[-1.8, 1, 7.5], textTranslatio
     group = Group(
         children=[
             Anchor(
-                DEF=description,
+                DEF=description.replace("/", "_").replace(".x3d", "").replace("..", "__"),
                 description=description,
                 parameter=[ "target=_self" ],
                 url=url,
