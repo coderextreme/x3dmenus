@@ -62,6 +62,7 @@ def menuItem(url, description, label, translation=[-1.8, 1, 7.5], textTranslatio
             Anchor(
                 DEF=description,
                 description=description,
+                parameter=[ "target=_self" ],
                 url=url,
                 children=[
                     Transform(
