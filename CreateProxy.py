@@ -141,8 +141,8 @@ def createProxyPage(dir, original_file, menu_url, base_url):
 
     # Setup browser UI
     browsers = [
-        ("Castle Model Viewer", f"https://castle-engine.io/castle-model-viewer-web/?model={base_url}{original_file}"),
-        ("X3DOM", f"https://www.web3d.org/x3d/content/examples/X3domViewer.html?url={base_url}{original_file}"),
+        ("Castle Model Viewer", f"https://castle-engine.io/web-demos/castle-model-viewer-mobile/?model={base_url}{original_file}"),
+        ("X3DOM", f"https://andreasplesch.github.io/Library/Viewer/index.html?url={base_url}{original_file}"),
         ("X_ITE", f"https://create3000.github.io/x_ite/playground/?url={base_url}{original_file}")
     ]
 
