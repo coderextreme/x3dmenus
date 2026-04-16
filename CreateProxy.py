@@ -33,6 +33,9 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     proxy_filename = f"AnchorMenu_{original_file}"
     base_filename = original_file.rsplit('.', 1)[0]
 
+    # Create a safe string for DEF names (alphanumeric and underscores only)
+    clean_name = re.sub(r'[^a-zA-Z0-9_]', '_', base_filename)
+
     encodings = {
         "XML (.x3d)": f"{base_filename}.x3d",
         "Classic VRML (.x3dv)": f"{base_filename}.x3dv",
@@ -48,6 +51,8 @@ def createProxyPage(dir, original_file, menu_url, base_url):
 
     choice_index = 0
     y_offset = 2.0
+
+    text_handler_def = f"TextHandler_{clean_name}"
 
     # Read encoding files and setup Text Switch UI
     for label, enc_file in encodings.items():
@@ -68,67 +73,45 @@ def createProxyPage(dir, original_file, menu_url, base_url):
             except Exception as e:
                 content_lines = [escapeForX3D(f"Error reading local file: {e}")]
         else:
-            # 2. Fallback to reading from URL if not found locally
-            try:
-                req = urllib.request.Request(enc_url, headers={'User-Agent': 'Mozilla/5.0'})
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    text = response.read().decode('utf-8', errors='replace')
-                    lines = text.splitlines()
-                    content_lines = [escapeForX3D(line.replace('\t', '  ')) for line in lines[:50]]
-                    if len(lines) > 50:
-                        content_lines.append("... (truncated)")
-            except HTTPError as e:
-                content_lines = [escapeForX3D(f"File missing locally. HTTP Error {e.code}: {e.reason}")]
-            except URLError as e:
-                content_lines = [escapeForX3D(f"File missing locally. URL Error: {e.reason}")]
-            except Exception as e:
-                content_lines = [escapeForX3D(f"Error fetching URL: {e}")]
-        # Visible Text Node
-        text_transform = Transform(translation=[0, 0, 0],
-            children=[
-                Shape(
-                    appearance=Appearance(
-                        material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
-                    ),
-                    geometry=Text(DEF='MyTextNode', string=content_lines,
-                        fontStyle=FontStyle(size=0.5, justify=["MIDDLE", "MIDDLE"])
-                    )
-                )
-            ]
+            content_lines = [escapeForX3D(f"Error fetching URL: not tried")]
+#            # 2. Fallback to reading from URL if not found locally
+#            try:
+#                req = urllib.request.Request(enc_url, headers={'User-Agent': 'Mozilla/5.0'})
+#                with urllib.request.urlopen(req, timeout=5) as response:
+#                    text = response.read().decode('utf-8', errors='replace')
+#                    lines = text.splitlines()
+#                    content_lines = [escapeForX3D(line.replace('\t', '  ')) for line in lines[:50]]
+#                    if len(lines) > 50:
+#                        content_lines.append("... (truncated)")
+#            except HTTPError as e:
+#                content_lines = [escapeForX3D(f"File missing locally. HTTP Error {e.code}: {e.reason}")]
+#            except URLError as e:
+#                content_lines = [escapeForX3D(f"File missing locally. URL Error: {e.reason}")]
+#            except Exception as e:
+#                content_lines = [escapeForX3D(f"Error fetching URL: {e}")]
+
+        # Ensure unique name for the text shape DEF
+        my_text_node_def = f"MyTextNode_{clean_name}_{choice_index}"
+
+        text_shape = Shape(
+            DEF=my_text_node_def,
+            appearance=Appearance(
+                material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
+            ),
+            geometry=Text(
+                string=content_lines,
+                fontStyle=FontStyle(size=0.1, family=["TYPEWRITER"], justify=["BEGIN", "FIRST"])
+            )
         )
-        text_children.append(text_transform)
-        # CastleScript Logic
-        script = Script(DEF='TextHandler',
-            # This field holds the data we fetched via Python
-            field=[
-                field(name='storedText', type='SFString', accessType='initializeOnly', value=enc_url),
-                field(name='outputText', type='MFString', accessType='outputOnly')
-            ],
-            # CastleScript protocol handles the conversion during scene startup
-            url=["castlescript: function initialize() outputText := FileToString(storedText)"]
-        )
-        text_children.append(script)
-        # Route the script result to the 3D Text
-        route = ROUTE(fromNode='TextHandler', fromField='outputText', toNode='MyTextNode', toField='string')
-        text_children.append(route)
+        text_children.append(text_shape)
 
-
-        #text_shape = Shape(
-        #    appearance=Appearance(
-        #        material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
-        #    ),
-        #    geometry=Text(
-        #        string=content_lines,
-        #        fontStyle=FontStyle(size=0.1, family=["TYPEWRITER"], justify=["BEGIN", "FIRST"])
-        #    )
-        #)
-        #text_children.append(text_shape)
-
-        btn_def = f"Btn_{choice_index}"
-        sensor_def = f"Sensor_{choice_index}"
-        trigger_def = f"Trigger_{choice_index}"
+        # Ensure unique names for buttons, sensors, and triggers
+        btn_def = f"Btn_{clean_name}_{choice_index}"
+        sensor_def = f"Sensor_{clean_name}_{choice_index}"
+        trigger_def = f"Trigger_{clean_name}_{choice_index}"
 
         button = Transform(
+            DEF=btn_def,
             translation=[-2.5, y_offset, 0],
             children=[
                 Shape(
@@ -151,7 +134,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         button_children.append(IntegerTrigger(DEF=trigger_def, integerKey=choice_index))
 
         routes.append(ROUTE(fromNode=sensor_def, fromField="isActive", toNode=trigger_def, toField="set_boolean"))
-        routes.append(ROUTE(fromNode=trigger_def, fromField="triggerValue", toNode="TextSwitch", toField="whichChoice"))
+        routes.append(ROUTE(fromNode=trigger_def, fromField="triggerValue", toNode=text_handler_def, toField="whichChoice"))
 
         choice_index += 1
         y_offset -= 0.4
@@ -219,9 +202,13 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         ]
     )
 
+    hud_transform_def = f"HUD_Transform_{clean_name}"
+    hud_sensor_def = f"HUD_Sensor_{clean_name}"
+    inline_def = f"Original_Model_{clean_name}"
+
     # We scale down HUD extremely to prevent any complex large scene geometries from clipping through it
     hud_transform = Transform(
-        DEF="HUD_Transform",
+        DEF=hud_transform_def,
         children=[
             # Lower HUD by setting Y from 0 to -0.05
             Transform(
@@ -244,7 +231,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
                                 ]
                             ),
                             Switch(
-                                DEF="TextSwitch",
+                                DEF=text_handler_def,
                                 whichChoice=0,
                                 children=text_children
                             )
@@ -255,12 +242,12 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         ]
     )
 
-    hud_sensor = ProximitySensor(DEF="HUD_Sensor", size=[100000, 100000, 100000])
+    hud_sensor = ProximitySensor(DEF=hud_sensor_def, size=[100000, 100000, 100000])
 
-    routes.append(ROUTE(fromNode="HUD_Sensor", fromField="position_changed", toNode="HUD_Transform", toField="translation"))
-    routes.append(ROUTE(fromNode="HUD_Sensor", fromField="orientation_changed", toNode="HUD_Transform", toField="rotation"))
+    routes.append(ROUTE(fromNode=hud_sensor_def, fromField="position_changed", toNode=hud_transform_def, toField="translation"))
+    routes.append(ROUTE(fromNode=hud_sensor_def, fromField="orientation_changed", toNode=hud_transform_def, toField="rotation"))
 
-    model_inline = Inline(DEF="Original_Model", url=[original_file])
+    model_inline = Inline(DEF=inline_def, url=[original_file])
 
     scene_children = [
         WorldInfo(title=proxy_filename),
