@@ -2,6 +2,8 @@
 import os
 import re
 import math
+import urllib.request
+from urllib.error import URLError, HTTPError
 from x3d import *
 
 # get the animation from the input file name
@@ -23,7 +25,7 @@ def fixURL(url):
 def createProxyPage(dir, original_file, menu_url, base_url):
     proxy_filename = f"AnchorMenu_{original_file}"
     base_filename = original_file.rsplit('.', 1)[0]
-    
+
     encodings = {
         "XML (.x3d)": f"{base_filename}.x3d",
         "Classic VRML (.x3dv)": f"{base_filename}.x3dv",
@@ -36,14 +38,17 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     text_children = []
     routes = []
     button_children = []
-    
+
     choice_index = 0
     y_offset = 2.0
-    
+
     # Read encoding files and setup Text Switch UI
     for label, enc_file in encodings.items():
         enc_path = os.path.join(dir, enc_file)
-        content_lines = [f"File not found: {enc_file}"]
+        enc_url = f"{base_url}{enc_file}"
+        content_lines = []
+
+        # 1. Try fetching from Local File System
         if os.path.exists(enc_path):
             try:
                 with open(enc_path, 'r', encoding='utf-8', errors='replace') as cf:
@@ -53,8 +58,24 @@ def createProxyPage(dir, original_file, menu_url, base_url):
                     if len(lines) > 50:
                         content_lines.append("... (truncated)")
             except Exception as e:
-                content_lines = [f"Error reading file: {e}"]
-        
+                content_lines = [f"Error reading local file: {e}"]
+        #else:
+        #    # 2. Fallback to reading from URL if not found locally
+        #    try:
+        #        req = urllib.request.Request(enc_url, headers={'User-Agent': 'Mozilla/5.0'})
+        #        with urllib.request.urlopen(req, timeout=5) as response:
+        #            text = response.read().decode('utf-8', errors='replace')
+        #            lines = text.splitlines()
+        #            content_lines = [line.replace('\t', '  ') for line in lines[:50]]
+        #            if len(lines) > 50:
+        #                content_lines.append("... (truncated)")
+        #    except HTTPError as e:
+        #        content_lines = [f"File missing locally. HTTP Error {e.code}: {e.reason}"]
+        #    except URLError as e:
+        #        content_lines = [f"File missing locally. URL Error: {e.reason}"]
+        #    except Exception as e:
+        #        content_lines = [f"Error fetching URL: {e}"]
+
         text_shape = Shape(
             appearance=Appearance(
                 material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
@@ -65,11 +86,11 @@ def createProxyPage(dir, original_file, menu_url, base_url):
             )
         )
         text_children.append(text_shape)
-        
+
         btn_def = f"Btn_{choice_index}"
         sensor_def = f"Sensor_{choice_index}"
         trigger_def = f"Trigger_{choice_index}"
-        
+
         button = Transform(
             translation=[-2.5, y_offset, 0],
             children=[
@@ -91,10 +112,10 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         )
         button_children.append(button)
         button_children.append(IntegerTrigger(DEF=trigger_def, integerKey=choice_index))
-        
+
         routes.append(ROUTE(fromNode=sensor_def, fromField="isActive", toNode=trigger_def, toField="set_boolean"))
         routes.append(ROUTE(fromNode=trigger_def, fromField="triggerValue", toNode="TextSwitch", toField="whichChoice"))
-        
+
         choice_index += 1
         y_offset -= 0.4
 
@@ -104,7 +125,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         ("X3DOM", f"https://www.web3d.org/x3d/content/examples/X3domViewer.html?url={base_url}{original_file}"),
         ("X_ITE", f"https://create3000.github.io/x_ite/playground/?url={base_url}{original_file}")
     ]
-    
+
     browser_children = []
     y_offset = -1.0
     for b_label, b_url in browsers:
@@ -148,7 +169,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
                         geometry=Rectangle2D(size=[2.0, 0.3])
                     ),
                     Transform(
-                        translation=[-0.9, -0.05, 0.01],
+                        translation=[-0.9, -0.10, 0.01],
                         children=[
                             Shape(
                                 appearance=Appearance(material=Material(diffuseColor=[0, 0, 0])),
@@ -165,8 +186,9 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     hud_transform = Transform(
         DEF="HUD_Transform",
         children=[
+            # Lower HUD by setting Y from 0 to -0.03
             Transform(
-                translation=[0, 0, -0.4],
+                translation=[0, -0.03, -0.4],
                 scale=[0.05, 0.05, 0.05],
                 children=[
                     back_btn,
@@ -195,14 +217,14 @@ def createProxyPage(dir, original_file, menu_url, base_url):
             )
         ]
     )
-    
+
     hud_sensor = ProximitySensor(DEF="HUD_Sensor", size=[100000, 100000, 100000])
-    
+
     routes.append(ROUTE(fromNode="HUD_Sensor", fromField="position_changed", toNode="HUD_Transform", toField="translation"))
     routes.append(ROUTE(fromNode="HUD_Sensor", fromField="orientation_changed", toNode="HUD_Transform", toField="rotation"))
-    
+
     model_inline = Inline(DEF="Original_Model", url=[original_file])
-    
+
     scene_children = [
         WorldInfo(title=proxy_filename),
         Viewpoint(description="Proxy View", position=[0, 0, 10]),
@@ -228,7 +250,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         ),
         Scene=Scene(children=scene_children)
     )
-    
+
     file_output = os.path.join(dir, proxy_filename)
     with open(file_output, "w", encoding='utf-8') as output_file:
         output_file.write(proxy_model.XML())
@@ -255,7 +277,7 @@ def displayMenu(files, script_name, url, def_tracker):
                 fontSize=0.05,
                 spacing=0.6)
             ifs_start += increment
-            
+
         if script_name == "FileScript" and animation != "AnchorMenu":
             proxy_filename = f"AnchorMenu_{animation}.x3d"
             group.children += menuItem(
@@ -297,7 +319,7 @@ def displayNavigation(prev_url, next_url, def_tracker):
             "NextPage",
             ["Next Page ->"],
             def_tracker,
-            translation=[-1.5, -0.9, 0.5], 
+            translation=[-1.5, -0.9, 0.5],
             textTranslation=[-0.4, -0.011, 0],
             load=False,
             size=[1.2, 0.1],
@@ -307,7 +329,7 @@ def displayNavigation(prev_url, next_url, def_tracker):
 
 def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], textTranslation=[0.05, -0.011, 0], load=False, size=[1, 0.1], fontSize=0.05, spacing=0.6, thumbnail_url=None, thumbnail_size=[0.1, 0.1]):
     # Setup shared resources with DEF / USE
-    
+
     # 1. Text Material and Appearance
     if 'TextMaterial' not in def_tracker:
         def_tracker['TextMaterial'] = True
@@ -451,13 +473,13 @@ def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], t
 def walkX3d(dir, url, files, folders):
     # Setup pagination variables
     ITEMS_PER_PAGE = 25 # Limits list size to fit screen height nicely
-    
+
     folders_list = [] if folders is None else sorted(set(folders))
     files_list = sorted(set(files))
 
     total_folders = len(folders_list)
     total_files = len(files_list)
-    
+
     # Calculate how many pages are required
     num_pages = max(1, math.ceil(total_folders / ITEMS_PER_PAGE), math.ceil(total_files / ITEMS_PER_PAGE))
 
@@ -470,11 +492,11 @@ def walkX3d(dir, url, files, folders):
         page_files = files_list[p * ITEMS_PER_PAGE : (p + 1) * ITEMS_PER_PAGE]
 
         filename = "AnchorMenu.x3d" if p == 0 else f"AnchorMenu_{p+1}.x3d"
-        
+
         # Build Navigation URLs
         prev_url = None
         next_url = None
-        
+
         if p > 0:
             prev_url = "AnchorMenu.x3d" if p == 1 else f"AnchorMenu_{p}.x3d"
         if p < num_pages - 1:
@@ -535,11 +557,11 @@ if __name__ == "__main__":
             if not d in ("_thumbnails", "_viewpoints", "images", "javadoc", "lib", "nbproject", "originals"):
                 filtered_dirs = filtered_dirs + [d];
         dirs = [ '..' ] + filtered_dirs
-        
+
         # Get target anchors
         folders = ["{}/{}/{}".format(root, d, "AnchorMenu.x3d") for d in dirs ]
-        
+
         # IMPORTANT: Filter out 'AnchorMenu*.x3d' files dynamically generated by this script so they aren't indexed as content!
         x3dfiles = ['{}/{}'.format(root, f) for f in files if f.endswith(".x3d") and not "new" in f and not "AnchorMenu" in f]
-        
+
         walkX3d(root, url, x3dfiles, folders)
