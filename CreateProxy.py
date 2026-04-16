@@ -22,6 +22,13 @@ def fixURL(url):
     url = url.replace('\\', '/')
     return url
 
+def escapeForX3D(text):
+    """
+    Properly escapes backslashes and double quotes for inclusion
+    in an X3D SFString inside an MFString.
+    """
+    return text.replace('\\', '\\\\').replace('"', '\\"')
+
 def createProxyPage(dir, original_file, menu_url, base_url):
     proxy_filename = f"AnchorMenu_{original_file}"
     base_filename = original_file.rsplit('.', 1)[0]
@@ -54,38 +61,68 @@ def createProxyPage(dir, original_file, menu_url, base_url):
                 with open(enc_path, 'r', encoding='utf-8', errors='replace') as cf:
                     lines = cf.readlines()
                     # Truncate at 50 lines to keep X3D rendering from getting swamped
-                    content_lines = [line.rstrip().replace('\t', '  ') for line in lines[:50]]
+                    # Escape text properly for SFStrings inside X3D MFStrings
+                    content_lines = [escapeForX3D(line.rstrip('\n\r').replace('\t', '  ')) for line in lines[:50]]
                     if len(lines) > 50:
                         content_lines.append("... (truncated)")
             except Exception as e:
-                content_lines = [f"Error reading local file: {e}"]
-        #else:
-        #    # 2. Fallback to reading from URL if not found locally
-        #    try:
-        #        req = urllib.request.Request(enc_url, headers={'User-Agent': 'Mozilla/5.0'})
-        #        with urllib.request.urlopen(req, timeout=5) as response:
-        #            text = response.read().decode('utf-8', errors='replace')
-        #            lines = text.splitlines()
-        #            content_lines = [line.replace('\t', '  ') for line in lines[:50]]
-        #            if len(lines) > 50:
-        #                content_lines.append("... (truncated)")
-        #    except HTTPError as e:
-        #        content_lines = [f"File missing locally. HTTP Error {e.code}: {e.reason}"]
-        #    except URLError as e:
-        #        content_lines = [f"File missing locally. URL Error: {e.reason}"]
-        #    except Exception as e:
-        #        content_lines = [f"Error fetching URL: {e}"]
-
-        text_shape = Shape(
-            appearance=Appearance(
-                material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
-            ),
-            geometry=Text(
-                string=content_lines,
-                fontStyle=FontStyle(size=0.1, family=["TYPEWRITER"], justify=["BEGIN", "FIRST"])
-            )
+                content_lines = [escapeForX3D(f"Error reading local file: {e}")]
+        else:
+            # 2. Fallback to reading from URL if not found locally
+            try:
+                req = urllib.request.Request(enc_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    text = response.read().decode('utf-8', errors='replace')
+                    lines = text.splitlines()
+                    content_lines = [escapeForX3D(line.replace('\t', '  ')) for line in lines[:50]]
+                    if len(lines) > 50:
+                        content_lines.append("... (truncated)")
+            except HTTPError as e:
+                content_lines = [escapeForX3D(f"File missing locally. HTTP Error {e.code}: {e.reason}")]
+            except URLError as e:
+                content_lines = [escapeForX3D(f"File missing locally. URL Error: {e.reason}")]
+            except Exception as e:
+                content_lines = [escapeForX3D(f"Error fetching URL: {e}")]
+        # Visible Text Node
+        text_transform = Transform(translation=[0, 0, 0],
+            children=[
+                Shape(
+                    appearance=Appearance(
+                        material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
+                    ),
+                    geometry=Text(DEF='MyTextNode', string=content_lines,
+                        fontStyle=FontStyle(size=0.5, justify=["MIDDLE", "MIDDLE"])
+                    )
+                )
+            ]
         )
-        text_children.append(text_shape)
+        text_children.append(text_transform)
+        # CastleScript Logic
+        script = Script(DEF='TextHandler',
+            # This field holds the data we fetched via Python
+            field=[
+                field(name='storedText', type='SFString', accessType='initializeOnly', value=enc_url),
+                field(name='outputText', type='MFString', accessType='outputOnly')
+            ],
+            # CastleScript protocol handles the conversion during scene startup
+            url=["castlescript: function initialize() outputText := FileToString(storedText)"]
+        )
+        text_children.append(script)
+        # Route the script result to the 3D Text
+        route = ROUTE(fromNode='TextHandler', fromField='outputText', toNode='MyTextNode', toField='string')
+        text_children.append(route)
+
+
+        #text_shape = Shape(
+        #    appearance=Appearance(
+        #        material=Material(diffuseColor=[0.1, 0.9, 0.1]) # Terminal green code!
+        #    ),
+        #    geometry=Text(
+        #        string=content_lines,
+        #        fontStyle=FontStyle(size=0.1, family=["TYPEWRITER"], justify=["BEGIN", "FIRST"])
+        #    )
+        #)
+        #text_children.append(text_shape)
 
         btn_def = f"Btn_{choice_index}"
         sensor_def = f"Sensor_{choice_index}"
@@ -169,7 +206,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
                         geometry=Rectangle2D(size=[2.0, 0.3])
                     ),
                     Transform(
-                        translation=[-0.9, -0.10, 0.01],
+                        translation=[-0.9, -0.05, 0.01],
                         children=[
                             Shape(
                                 appearance=Appearance(material=Material(diffuseColor=[0, 0, 0])),
@@ -186,9 +223,9 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     hud_transform = Transform(
         DEF="HUD_Transform",
         children=[
-            # Lower HUD by setting Y from 0 to -0.03
+            # Lower HUD by setting Y from 0 to -0.05
             Transform(
-                translation=[0, -0.03, -0.4],
+                translation=[0, -0.05, -0.4],
                 scale=[0.05, 0.05, 0.05],
                 children=[
                     back_btn,
