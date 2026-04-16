@@ -153,7 +153,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
             translation=[-2.5, y_offset, 0],
             children=[
                 Anchor(
-                    url=[b_url],
+                    url=[fixURL(b_url)],
                     parameter=["target=_blank"],
                     description=f"Open in {b_label}",
                     children=[
@@ -210,9 +210,9 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     hud_transform = Transform(
         DEF=hud_transform_def,
         children=[
-            # Lower HUD by setting Y from 0 to -0.05
+            # Lower HUD by setting Y from 0 to -0.03
             Transform(
-                translation=[0, -0.05, -0.4],
+                translation=[0, -0.03, -0.4],
                 scale=[0.05, 0.05, 0.05],
                 children=[
                     back_btn,
