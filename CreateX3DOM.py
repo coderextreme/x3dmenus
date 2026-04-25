@@ -253,7 +253,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="position_changed", toNode=hud_transform_def, toField="translation"))
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="orientation_changed", toNode=hud_transform_def, toField="rotation"))
 
-    model_inline = Inline(DEF=inline_def, url=[findPath(dir+"/")+"/"+original_file])
+    model_inline = Inline(DEF=inline_def, url=[findPath(dir+"/")+"/"+original_file, original_file, fixURL(f"{base_url}{original_file}")])
 
     scene_children = [
         WorldInfo(title=proxy_filename),
@@ -322,7 +322,7 @@ def displayMenu(files, script_name, url, def_tracker):
                 size=[1, 0.2],
                 fontSize=0.15,
                 spacing=1.2,
-                thumbnail_url=[path+"/_thumbnails/"+animation+"Thumbnail.png", fixURL(url)+path+"/_thumbnails/"+animation+"Thumbnail.png"],
+                thumbnail_url=["_thumbnails/"+animation+"Thumbnail.png", path+"/_thumbnails/"+animation+"Thumbnail.png", fixURL(url)+"/_thumbnails/"+animation+"Thumbnail.png"],
                 thumbnail_size=[0.18, 0.18])
             ifs_start += increment
 

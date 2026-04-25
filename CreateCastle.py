@@ -247,7 +247,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="position_changed", toNode=hud_transform_def, toField="translation"))
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="orientation_changed", toNode=hud_transform_def, toField="rotation"))
 
-    model_inline = Inline(DEF=inline_def, url=[original_file])
+    model_inline = Inline(DEF=inline_def, url=[original_file, fixURL(f"{base_url}{original_file}")])
 
     scene_children = [
         WorldInfo(title=proxy_filename),
