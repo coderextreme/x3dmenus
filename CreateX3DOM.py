@@ -13,6 +13,12 @@ def findAnimation(input_filename):
     return animation
 
 # get the folder from the input file name
+def findPath(input_filename):
+    input_filename = input_filename.replace('\\', '/')
+    path = re.sub(r".*/examples/(.*)/.*", "\\1", input_filename)
+    return path
+
+# get the folder from the input file name
 def findFolder(input_filename):
     input_filename = input_filename.replace('\\', '/')
     folder = re.sub(r".*/(.*)/.*", "\\1", input_filename)
@@ -100,7 +106,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
             ),
             geometry=Text(
                 string=content_lines,
-                fontStyle=FontStyle(size=0.1, family=["TYPEWRITER"], justify=["BEGIN", "FIRST"])
+                fontStyle=FontStyle(size=0.1, family=["SANS"], justify=["BEGIN", "FIRST"])
             )
         )
         text_children.append(text_shape)
@@ -181,7 +187,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         translation=[-2.5, 3.0, 0],
         children=[
             Anchor(
-                url=[menu_url],
+                url=[findPath(dir+"/")+"/"+menu_url],
                 description="Back to Menu",
                 children=[
                     Shape(
@@ -212,8 +218,8 @@ def createProxyPage(dir, original_file, menu_url, base_url):
         children=[
             # Lower HUD by setting Y from 0 to -0.03
             Transform(
-                translation=[0, -0.03, -0.4],
-                scale=[0.05, 0.05, 0.05],
+                translation=[0, -0.03, 1.5],
+                scale=[1.1, 1.1, 1.1],
                 children=[
                     back_btn,
                     Group(children=button_children),
@@ -247,7 +253,7 @@ def createProxyPage(dir, original_file, menu_url, base_url):
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="position_changed", toNode=hud_transform_def, toField="translation"))
     routes.append(ROUTE(fromNode=hud_sensor_def, fromField="orientation_changed", toNode=hud_transform_def, toField="rotation"))
 
-    model_inline = Inline(DEF=inline_def, url=[original_file])
+    model_inline = Inline(DEF=inline_def, url=[findPath(dir+"/")+"/"+original_file])
 
     scene_children = [
         WorldInfo(title=proxy_filename),
@@ -281,83 +287,84 @@ def createProxyPage(dir, original_file, menu_url, base_url):
 
 def displayMenu(files, script_name, url, def_tracker):
     ifs_start = 1
-    increment = -1/14
+    increment = -1/7
     group = Group()
 
     # Fill in the menu
     for fitem, input_file in enumerate(files):
         animation = findAnimation(input_file)
         folder = findFolder(input_file)
+        path = findPath(input_file)
         if script_name == "FolderScript" and folder != "AnchorMenu":
             group.children += menuItem(
-                [folder+"/AnchorMenu.x3d", fixURL(url)+folder+"/AnchorMenu.x3d"],
+                [path+"/AnchorMenu.x3d", fixURL(url)+path+"/AnchorMenu.x3d"],
                 folder+"/AnchorMenu.x3d",
                 [folder],
                 def_tracker,
                 translation=[-2, ifs_start, 0.5],
-                textTranslation=[-0.4, -0.011, 0],
+                textTranslation=[-0.35, 0.115, 0],
                 load=False,
-                size=[1, 0.1],
-                fontSize=0.05,
-                spacing=0.6)
+                size=[1, 0.2],
+                fontSize=0.15,
+                spacing=1.2)
             ifs_start += increment
 
         if script_name == "FileScript" and animation != "AnchorMenu":
             proxy_filename = f"AnchorMenu_{animation}.x3d"
             group.children += menuItem(
-                [proxy_filename, fixURL(url)+proxy_filename, folder+"/"+proxy_filename, fixURL(url)+folder+"/"+proxy_filename],
+                [path+"/"+proxy_filename, fixURL(url)+"/"+proxy_filename],
                 animation,
                 [animation],
                 def_tracker,
                 translation=[-1, ifs_start, 0.5],
-                textTranslation=[-0.4, -0.011, 0],
+                textTranslation=[-0.35, 0.115, 0],
                 load=False,
-                size=[1, 0.1],
-                fontSize=0.05,
-                spacing=0.6,
-                thumbnail_url=["_thumbnails/"+animation+"Thumbnail.png", fixURL(url)+"_thumbnails/"+animation+"Thumbnail.png"],
-                thumbnail_size=[0.1, 0.1])
+                size=[1, 0.2],
+                fontSize=0.15,
+                spacing=1.2,
+                thumbnail_url=[path+"/_thumbnails/"+animation+"Thumbnail.png", fixURL(url)+path+"/_thumbnails/"+animation+"Thumbnail.png"],
+                thumbnail_size=[0.18, 0.18])
             ifs_start += increment
 
     return group
 
-def displayNavigation(prev_url, next_url, def_tracker):
+def displayNavigation(dir, prev_url, next_url, def_tracker):
     group = Group()
     # Place "Previous Page" at the top center
     if prev_url:
         group.children += menuItem(
-            [prev_url],
+            [findPath(dir+"/")+"/"+prev_url],
             "PrevPage",
             ["<- Previous Page"],
             def_tracker,
-            translation=[-1.5, 1.15, 0.5],
-            textTranslation=[-0.4, -0.011, 0],
+            translation=[-1.5, 1.2, 0.5],
+            textTranslation=[-0.35, 0.115, 0],
             load=False,
-            size=[1.2, 0.1],
-            fontSize=0.05,
-            spacing=0.6)
+            size=[1, 0.2],
+            fontSize=0.15,
+            spacing=1.2)
     # Place "Next Page" at the bottom center
     if next_url:
         group.children += menuItem(
-            [next_url],
+            [findPath(dir+"/")+"/"+next_url],
             "NextPage",
             ["Next Page ->"],
             def_tracker,
-            translation=[-1.5, -0.9, 0.5],
-            textTranslation=[-0.4, -0.011, 0],
+            translation=[-1.5, -2.6, 0.5],
+            textTranslation=[-0.35, 0.115, 0],
             load=False,
-            size=[1.2, 0.1],
-            fontSize=0.05,
-            spacing=0.6)
+            size=[1, 0.2],
+            fontSize=0.15,
+            spacing=1.2)
     return group
 
-def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], textTranslation=[0.05, -0.011, 0], load=False, size=[1, 0.1], fontSize=0.05, spacing=0.6, thumbnail_url=None, thumbnail_size=[0.1, 0.1]):
+def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], textTranslation=[-0.35, 0.115, 0], load=False, size=[1, 0.1], fontSize=0.05, spacing=0.6, thumbnail_url=None, thumbnail_size=[0.18, 0.18]):
     # Setup shared resources with DEF / USE
 
     # 1. Text Material and Appearance
     if 'TextMaterial' not in def_tracker:
         def_tracker['TextMaterial'] = True
-        text_mat = Material(DEF='TextMaterial', diffuseColor=[0, 0, 0])
+        text_mat = Material(DEF='TextMaterial', diffuseColor=[1, 1, 1])
     else:
         text_mat = Material(USE='TextMaterial')
 
@@ -378,7 +385,7 @@ def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], t
     # 3. Background Material and Appearance
     if 'BackgroundMaterial' not in def_tracker:
         def_tracker['BackgroundMaterial'] = True
-        bg_mat = Material(DEF='BackgroundMaterial', diffuseColor=[1, 1, 1])
+        bg_mat = Material(DEF='BackgroundMaterial', diffuseColor=[0, 0, 0])
     else:
         bg_mat = Material(USE='BackgroundMaterial')
 
@@ -413,7 +420,7 @@ def menuItem(url, description, label, def_tracker, translation=[-1.8, 1, 7.5], t
 
     # 5. Thumbnail Rectangle and Thumbnail Transform
     if thumbnail_size is None:
-        thumbnail_size = [0.1, 0.1]
+        thumbnail_size = [0.18, 0.18]
     thumb_rect_def = f"ThumbnailRectangle_{str(thumbnail_size[0]).replace('.', '_')}_{str(thumbnail_size[1]).replace('.', '_')}"
     if thumb_rect_def not in def_tracker:
         def_tracker[thumb_rect_def] = True
@@ -558,7 +565,7 @@ def walkX3d(dir, url, files, folders):
                     ),
                     displayMenu(page_folders, "FolderScript", url, def_tracker),
                     displayMenu(page_files, "FileScript", url, def_tracker),
-                    displayNavigation(prev_url, next_url, def_tracker)
+                    displayNavigation(dir, prev_url, next_url, def_tracker)
                 ]
             )
         )
